@@ -11,6 +11,9 @@ export const CalculadoraScreen = () => {
   const [waiting, setWaiting] = useState(false);
 
   const inputNumber = (num: string) => {
+    if (display === '0' && num === '0' && !display.includes('.')) {
+      return;
+    }
     if (waiting) {
       setDisplay(num);
       setWaiting(false);
