@@ -35,6 +35,14 @@ export const CalculadoraScreen = () => {
     setWaiting(false);
   };
 
+  const deleteLastDigit = () => {
+    if (display.length === 1 || (display.length === 2 && display.startsWith('-'))) {
+      setDisplay('0');
+    } else {
+      setDisplay(display.slice(0, -1));
+    }
+  };
+
   const toggleSign = () => {
     setDisplay(String(parseFloat(display) * -1));
   };
@@ -108,6 +116,7 @@ export const CalculadoraScreen = () => {
       }
     } else if (type === 'function') {
       if (value === 'AC') clear();
+      if (value === 'DEL') deleteLastDigit();
       if (value === '+/-') toggleSign();
       if (value === '%') percentage();
     } else if (type === 'operator') {
@@ -129,8 +138,8 @@ export const CalculadoraScreen = () => {
           <TouchableOpacity style={styles.functionButton} onPress={() => handlePress('AC', 'AC', 'function')}>
             <Text style={styles.buttonText}>AC</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.functionButton} onPress={() => handlePress('+/-', '+/-', 'function')}>
-            <Text style={styles.buttonText}>+/-</Text>
+          <TouchableOpacity style={styles.functionButton} onPress={() => handlePress('DEL', 'DEL', 'function')}>
+            <Text style={styles.buttonText}>DEL</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.functionButton} onPress={() => handlePress('%', '%', 'function')}>
             <Text style={styles.buttonText}>%</Text>
