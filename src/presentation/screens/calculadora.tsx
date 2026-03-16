@@ -6,209 +6,252 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Dimensions,
-  StyleProp,
-  ViewStyle,
-  TextStyle
 } from 'react-native';
 
 const { width } = Dimensions.get('window');
 const BUTTON_SIZE = (width - 50) / 4;
 
-type ButtonType = 'number' | 'operator' | 'function';
-
-interface ButtonData {
-  label: string;
-  type: ButtonType;
-  value?: string;
-}
-const buttons: ButtonData[][] = [
-
-  [
-    { label: 'AC', type: 'function' },
-    { label: '+/-', type: 'function' },
-    { label: '%', type: 'function' },
-    { label: '÷', type: 'operator', value: '/' },
-  ],
-  [
-    { label: '7', type: 'number', value: '7' },
-    { label: '8', type: 'number', value: '8' },
-    { label: '9', type: 'number', value: '9' },
-    { label: '×', type: 'operator', value: '*' },
-  ],
-  [
-    { label: '4', type: 'number', value: '4' },
-    { label: '5', type: 'number', value: '5' },
-    { label: '6', type: 'number', value: '6' },
-    { label: '-', type: 'operator', value: '-' },
-  ],
-  [
-    { label: '1', type: 'number', value: '1' },
-    { label: '2', type: 'number', value: '2' },
-    { label: '3', type: 'number', value: '3' },
-    { label: '+', type: 'operator', value: '+' },
-  ],
-  [
-    { label: '0', type: 'number', value: '0' },
-    { label: '.', type: 'number', value: '.' },
-    { label: '=', type: 'operator', value: '=' },
-  ],
-];
-
 export default function CalculadoraScreen() {
-
   const [display, setDisplay] = useState('0');
-  const [previous, setPrevious] = useState<number | null>(null);
-  const [operator, setOperator] = useState<string | null>(null);
-  const [waiting, setWaiting] = useState(false);
+  const [previousValue, setPreviousValue] = useState<number | null>(null);
+  const [operation, setOperation] = useState<string | null>(null);
+  const [waitingForOperand, setWaitingForOperand] = useState(false);
 
-  const operations: any = {
-    '+': (a:number,b:number)=>a+b,
-    '-': (a:number,b:number)=>a-b,
-    '*': (a:number,b:number)=>a*b,
-    '/': (a:number,b:number)=> b !== 0 ? a/b : 0
-  };
-
-  const inputNumber = (num:string)=>{
-    if(waiting){
-      setDisplay(num);
-      setWaiting(false);
-    }else{
-      setDisplay(display === '0' ? num : display + num);
+  const inputDigit = (digit: string) => {
+    if (waitingForOperand) {
+      setDisplay(digit);
+      setWaitingForOperand(false);
+    } else {
+      setDisplay(display === '0' ? digit : display + digit);
     }
   };
 
-  const inputDecimal = ()=>{
-    if(!display.includes('.')){
+  const inputDecimal = () => {
+    if (waitingForOperand) {
+      setDisplay('0.');
+      setWaitingForOperand(false);
+    } else if (!display.includes('.')) {
       setDisplay(display + '.');
     }
   };
 
-  const clear = ()=>{
+  const clear = () => {
     setDisplay('0');
-    setPrevious(null);
-    setOperator(null);
-    setWaiting(false);
+    setPreviousValue(null);
+    setOperation(null);
+    setWaitingForOperand(false);
   };
 
-  const calculate = ()=>{
-    if(previous === null || !operator) return;
+  const toggleSign = () => {
+    setDisplay(String(parseFloat(display) * -1));
+  };
 
-    const result = operations[operator](previous, parseFloat(display));
+  const percentage = () => {
+    setDisplay(String(parseFloat(display) / 100));
+  };
+
+  const performOperation = (nextOperation: string) => {
+    const inputValue = parseFloat(display);
+
+    if (previousValue === null) {
+      setPreviousValue(inputValue);
+    } else if (operation && !waitingForOperand) {
+      const current = previousValue;
+      let result = 0;
+
+      switch (operation) {
+        case '+':
+          result = current + inputValue;
+          break;
+        case '-':
+          result = current - inputValue;
+          break;
+        case '*':
+          result = current * inputValue;
+          break;
+        case '/':
+          result = inputValue !== 0 ? current / inputValue : 0;
+          break;
+      }
+
+      setDisplay(String(result));
+      setPreviousValue(result);
+    }
+
+    setWaitingForOperand(true);
+    setOperation(nextOperation);
+  };
+
+  const calculate = () => {
+    if (previousValue === null || !operation) return;
+
+    const inputValue = parseFloat(display);
+    let result = 0;
+
+    switch (operation) {
+      case '+':
+        result = previousValue + inputValue;
+        break;
+      case '-':
+        result = previousValue - inputValue;
+        break;
+      case '*':
+        result = previousValue * inputValue;
+        break;
+      case '/':
+        result = inputValue !== 0 ? previousValue / inputValue : 0;
+        break;
+    }
 
     setDisplay(String(result));
-    setPrevious(null);
-    setOperator(null);
-    setWaiting(true);
+    setPreviousValue(null);
+    setOperation(null);
+    setWaitingForOperand(true);
   };
 
-  const performOperation = (op:string)=>{
-    const value = parseFloat(display);
+  const renderButton = (label: string, type: 'function' | 'operator' | 'number', value?: string) => {
+    const isZero = label === '0';
+    const isOperator = type === 'operator';
+    const isFunction = type === 'function';
 
-    if(previous === null){
-      setPrevious(value);
-    }else if(!waiting){
-      const result = operations[operator!](previous,value);
-      setDisplay(String(result));
-      setPrevious(result);
-    }
+    const handlePress = () => {
+      if (value === '=') {
+        calculate();
+      } else if (value === 'AC') {
+        clear();
+      } else if (value === '+/-') {
+        toggleSign();
+      } else if (value === '%') {
+        percentage();
+      } else if (value === '.') {
+        inputDecimal();
+      } else if (isOperator && value) {
+        performOperation(value);
+      } else if (value) {
+        inputDigit(value);
+      }
+    };
 
-    setOperator(op);
-    setWaiting(true);
+    return (
+      <TouchableOpacity
+        key={label}
+        style={[
+          styles.button,
+          isZero && styles.zeroButton,
+          isOperator && styles.operatorButton,
+          isFunction && styles.functionButton,
+        ]}
+        onPress={handlePress}
+        activeOpacity={0.7}
+      >
+        <Text
+          style={[
+            styles.buttonText,
+            isOperator && styles.operatorText,
+          ]}
+        >
+          {label}
+        </Text>
+      </TouchableOpacity>
+    );
   };
 
-  const handleButtonPress = (button:ButtonData)=>{
-
-    if(button.type === 'number'){
-      if(button.value === '.') return inputDecimal();
-      if(button.value) return inputNumber(button.value);
-    }
-
-    if(button.type === 'function'){
-      if(button.label === 'AC') return clear();
-      if(button.label === '+/-') return setDisplay(String(parseFloat(display)*-1));
-      if(button.label === '%') return setDisplay(String(parseFloat(display)/100));
-    }
-
-    if(button.type === 'operator'){
-      if(button.value === '=') return calculate();
-      if(button.value) return performOperation(button.value);
-    }
-
-  };
-
-  const getButtonStyle = (button: ButtonData): StyleProp<ViewStyle> => {
-    const base:StyleProp<ViewStyle>[]=[styles.button];
-
-    if(button.type === 'operator') base.push(styles.operatorButton);
-    else if(button.type === 'function') base.push(styles.functionButton);
-    else base.push(styles.numberButton);
-
-    if(button.label === '0') base.push(styles.zeroButton);
-
-    return base;
-  };
-
-  const getTextStyle = (button: ButtonData): StyleProp<TextStyle> => {
-    return [
-      styles.buttonText,
-      button.type === 'operator' ? styles.operatorText : styles.numberText
-    ];
-  };
-
-  const formatDisplay = (value:string)=>{
-    const num = parseFloat(value);
-    if(isNaN(num)) return value;
-
-    const parts = value.split('.');
-    const formatted = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-
-    return parts[1] ? `${formatted}.${parts[1]}` : formatted;
+  const renderRow = (buttons: (string | { label: string; type: 'function' | 'operator' | 'number'; value?: string })[]) => {
+    return (
+      <View style={styles.row}>
+        {buttons.map((btn) => {
+          if (typeof btn === 'string') {
+            const type = btn === 'AC' || btn === '+/-' || btn === '%' 
+              ? 'function' 
+              : btn === '÷' || btn === '×' || btn === '-' || btn === '+' || btn === '=' 
+                ? 'operator' 
+                : 'number';
+            const value = btn === '÷' ? '/' : btn === '×' ? '*' : btn;
+            return renderButton(btn, type, value);
+          }
+          return renderButton(btn.label, btn.type, btn.value);
+        })}
+      </View>
+    );
   };
 
   return (
     <SafeAreaView style={styles.container}>
-
       <View style={styles.displayContainer}>
-        <Text style={styles.displayText} numberOfLines={1} adjustsFontSizeToFit>
-          {formatDisplay(display)}
+        <Text style={styles.display} numberOfLines={1} adjustsFontSizeToFit>
+          {display}
         </Text>
       </View>
 
       <View style={styles.buttonContainer}>
-        {buttons.map((row,rowIndex)=>(
-          <View key={rowIndex} style={styles.buttonRow}>
-            {row.map((button,index)=>(
-              <TouchableOpacity
-                key={index}
-                style={getButtonStyle(button)}
-                onPress={()=>handleButtonPress(button)}
-                activeOpacity={0.7}
-              >
-                <Text style={getTextStyle(button)}>
-                  {button.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ))}
+        {renderRow([
+          { label: 'AC', type: 'function', value: 'AC' },
+          { label: '+/-', type: 'function', value: '+/-' },
+          { label: '%', type: 'function', value: '%' },
+          { label: '÷', type: 'operator', value: '/' },
+        ])}
+        {renderRow(['7', '8', '9', { label: '×', type: 'operator', value: '*' }])}
+        {renderRow(['4', '5', '6', { label: '-', type: 'operator', value: '-' }])}
+        {renderRow(['1', '2', '3', { label: '+', type: 'operator', value: '+' }])}
+        {renderRow(['0', { label: '.', type: 'number', value: '.' }, { label: '=', type: 'operator', value: '=' }])}
       </View>
-
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container:{flex:1,backgroundColor:'#000',justifyContent:'flex-end'},
-  displayContainer:{flex:1,justifyContent:'flex-end',alignItems:'flex-end',paddingHorizontal:20,paddingBottom:20},
-  displayText:{color:'#fff',fontSize:80,fontWeight:'300'},
-  buttonContainer:{paddingHorizontal:10,paddingBottom:30},
-  buttonRow:{flexDirection:'row',justifyContent:'space-between',marginBottom:12},
-  button:{width:BUTTON_SIZE,height:BUTTON_SIZE,borderRadius:BUTTON_SIZE/2,justifyContent:'center',alignItems:'center'},
-  zeroButton:{width:(BUTTON_SIZE*2)+12,alignItems:'flex-start',paddingLeft:35},
-  numberButton:{backgroundColor:'#333'},
-  operatorButton:{backgroundColor:'#FF9F0A'},
-  functionButton:{backgroundColor:'#A5A5A5'},
-  buttonText:{fontSize:32,fontWeight:'400'},
-  operatorText:{color:'#FFF'},
-  numberText:{color:'#FFF'},
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'flex-end',
+  },
+  displayContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    alignItems: 'flex-end',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  display: {
+    color: '#fff',
+    fontSize: 80,
+    fontWeight: '300',
+  },
+  buttonContainer: {
+    paddingHorizontal: 10,
+    paddingBottom: 30,
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  button: {
+    width: BUTTON_SIZE,
+    height: BUTTON_SIZE,
+    borderRadius: BUTTON_SIZE / 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#333',
+  },
+  zeroButton: {
+    width: (BUTTON_SIZE * 2) + 12,
+    alignItems: 'flex-start',
+    paddingLeft: 35,
+    borderRadius: BUTTON_SIZE / 2,
+  },
+  operatorButton: {
+    backgroundColor: '#FF9F0A',
+  },
+  functionButton: {
+    backgroundColor: '#A5A5A5',
+  },
+  buttonText: {
+    fontSize: 32,
+    fontWeight: '400',
+    color: '#fff',
+  },
+  operatorText: {
+    color: '#fff',
+  },
 });
