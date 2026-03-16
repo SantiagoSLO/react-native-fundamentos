@@ -1,36 +1,26 @@
 import React, { useState } from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
-  SafeAreaView,
-  Dimensions,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Dimensions } from 'react-native';
 
 const { width } = Dimensions.get('window');
 const BUTTON_SIZE = (width - 50) / 4;
 
-export default function CalculadoraScreen() {
+export const CalculadoraScreen = () => {
   const [display, setDisplay] = useState('0');
   const [previousValue, setPreviousValue] = useState<number | null>(null);
   const [operation, setOperation] = useState<string | null>(null);
-  const [waitingForOperand, setWaitingForOperand] = useState(false);
+  const [waiting, setWaiting] = useState(false);
 
-  const inputDigit = (digit: string) => {
-    if (waitingForOperand) {
-      setDisplay(digit);
-      setWaitingForOperand(false);
+  const inputNumber = (num: string) => {
+    if (waiting) {
+      setDisplay(num);
+      setWaiting(false);
     } else {
-      setDisplay(display === '0' ? digit : display + digit);
+      setDisplay(display === '0' ? num : display + num);
     }
   };
 
   const inputDecimal = () => {
-    if (waitingForOperand) {
-      setDisplay('0.');
-      setWaitingForOperand(false);
-    } else if (!display.includes('.')) {
+    if (!display.includes('.')) {
       setDisplay(display + '.');
     }
   };
@@ -39,7 +29,7 @@ export default function CalculadoraScreen() {
     setDisplay('0');
     setPreviousValue(null);
     setOperation(null);
-    setWaitingForOperand(false);
+    setWaiting(false);
   };
 
   const toggleSign = () => {
@@ -50,129 +40,77 @@ export default function CalculadoraScreen() {
     setDisplay(String(parseFloat(display) / 100));
   };
 
-  const performOperation = (nextOperation: string) => {
-    const inputValue = parseFloat(display);
-
-    if (previousValue === null) {
-      setPreviousValue(inputValue);
-    } else if (operation && !waitingForOperand) {
-      const current = previousValue;
-      let result = 0;
-
-      switch (operation) {
-        case '+':
-          result = current + inputValue;
-          break;
-        case '-':
-          result = current - inputValue;
-          break;
-        case '*':
-          result = current * inputValue;
-          break;
-        case '/':
-          result = inputValue !== 0 ? current / inputValue : 0;
-          break;
-      }
-
-      setDisplay(String(result));
-      setPreviousValue(result);
-    }
-
-    setWaitingForOperand(true);
-    setOperation(nextOperation);
-  };
-
   const calculate = () => {
     if (previousValue === null || !operation) return;
 
-    const inputValue = parseFloat(display);
+    const current = parseFloat(display);
     let result = 0;
 
     switch (operation) {
       case '+':
-        result = previousValue + inputValue;
+        result = previousValue + current;
         break;
       case '-':
-        result = previousValue - inputValue;
+        result = previousValue - current;
         break;
       case '*':
-        result = previousValue * inputValue;
+        result = previousValue * current;
         break;
       case '/':
-        result = inputValue !== 0 ? previousValue / inputValue : 0;
+        result = current !== 0 ? previousValue / current : 0;
         break;
     }
 
     setDisplay(String(result));
     setPreviousValue(null);
     setOperation(null);
-    setWaitingForOperand(true);
+    setWaiting(true);
   };
 
-  const renderButton = (label: string, type: 'function' | 'operator' | 'number', value?: string) => {
-    const isZero = label === '0';
-    const isOperator = type === 'operator';
-    const isFunction = type === 'function';
+  const performOperation = (op: string) => {
+    const current = parseFloat(display);
 
-    const handlePress = () => {
-      if (value === '=') {
-        calculate();
-      } else if (value === 'AC') {
-        clear();
-      } else if (value === '+/-') {
-        toggleSign();
-      } else if (value === '%') {
-        percentage();
-      } else if (value === '.') {
-        inputDecimal();
-      } else if (isOperator && value) {
-        performOperation(value);
-      } else if (value) {
-        inputDigit(value);
+    if (previousValue === null) {
+      setPreviousValue(current);
+    } else if (!waiting) {
+      let result = 0;
+      switch (operation) {
+        case '+':
+          result = previousValue + current;
+          break;
+        case '-':
+          result = previousValue - current;
+          break;
+        case '*':
+          result = previousValue * current;
+          break;
+        case '/':
+          result = current !== 0 ? previousValue / current : 0;
+          break;
       }
-    };
+      setDisplay(String(result));
+      setPreviousValue(result);
+    }
 
-    return (
-      <TouchableOpacity
-        key={label}
-        style={[
-          styles.button,
-          isZero && styles.zeroButton,
-          isOperator && styles.operatorButton,
-          isFunction && styles.functionButton,
-        ]}
-        onPress={handlePress}
-        activeOpacity={0.7}
-      >
-        <Text
-          style={[
-            styles.buttonText,
-            isOperator && styles.operatorText,
-          ]}
-        >
-          {label}
-        </Text>
-      </TouchableOpacity>
-    );
+    setOperation(op);
+    setWaiting(true);
   };
 
-  const renderRow = (buttons: (string | { label: string; type: 'function' | 'operator' | 'number'; value?: string })[]) => {
-    return (
-      <View style={styles.row}>
-        {buttons.map((btn) => {
-          if (typeof btn === 'string') {
-            const type = btn === 'AC' || btn === '+/-' || btn === '%' 
-              ? 'function' 
-              : btn === '÷' || btn === '×' || btn === '-' || btn === '+' || btn === '=' 
-                ? 'operator' 
-                : 'number';
-            const value = btn === '÷' ? '/' : btn === '×' ? '*' : btn;
-            return renderButton(btn, type, value);
-          }
-          return renderButton(btn.label, btn.type, btn.value);
-        })}
-      </View>
-    );
+  const handlePress = (label: string, value: string, type: string) => {
+    if (type === 'number') {
+      if (value === '.') {
+        inputDecimal();
+      } else {
+        inputNumber(value);
+      }
+    } else if (type === 'function') {
+      if (value === 'AC') clear();
+      if (value === '+/-') toggleSign();
+      if (value === '%') percentage();
+    } else if (type === 'operator') {
+      if (value === '=') calculate();
+      else performOperation(value);
+    }
   };
 
   return (
@@ -184,20 +122,81 @@ export default function CalculadoraScreen() {
       </View>
 
       <View style={styles.buttonContainer}>
-        {renderRow([
-          { label: 'AC', type: 'function', value: 'AC' },
-          { label: '+/-', type: 'function', value: '+/-' },
-          { label: '%', type: 'function', value: '%' },
-          { label: '÷', type: 'operator', value: '/' },
-        ])}
-        {renderRow(['7', '8', '9', { label: '×', type: 'operator', value: '*' }])}
-        {renderRow(['4', '5', '6', { label: '-', type: 'operator', value: '-' }])}
-        {renderRow(['1', '2', '3', { label: '+', type: 'operator', value: '+' }])}
-        {renderRow(['0', { label: '.', type: 'number', value: '.' }, { label: '=', type: 'operator', value: '=' }])}
+        <View style={styles.row}>
+          <TouchableOpacity style={styles.functionButton} onPress={() => handlePress('AC', 'AC', 'function')}>
+            <Text style={styles.buttonText}>AC</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.functionButton} onPress={() => handlePress('+/-', '+/-', 'function')}>
+            <Text style={styles.buttonText}>+/-</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.functionButton} onPress={() => handlePress('%', '%', 'function')}>
+            <Text style={styles.buttonText}>%</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.operatorButton} onPress={() => handlePress('÷', '/', 'operator')}>
+            <Text style={styles.operatorText}>÷</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.row}>
+          <TouchableOpacity style={styles.numberButton} onPress={() => handlePress('7', '7', 'number')}>
+            <Text style={styles.numberText}>7</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.numberButton} onPress={() => handlePress('8', '8', 'number')}>
+            <Text style={styles.numberText}>8</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.numberButton} onPress={() => handlePress('9', '9', 'number')}>
+            <Text style={styles.numberText}>9</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.operatorButton} onPress={() => handlePress('×', '*', 'operator')}>
+            <Text style={styles.operatorText}>×</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.row}>
+          <TouchableOpacity style={styles.numberButton} onPress={() => handlePress('4', '4', 'number')}>
+            <Text style={styles.numberText}>4</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.numberButton} onPress={() => handlePress('5', '5', 'number')}>
+            <Text style={styles.numberText}>5</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.numberButton} onPress={() => handlePress('6', '6', 'number')}>
+            <Text style={styles.numberText}>6</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.operatorButton} onPress={() => handlePress('-', '-', 'operator')}>
+            <Text style={styles.operatorText}>-</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.row}>
+          <TouchableOpacity style={styles.numberButton} onPress={() => handlePress('1', '1', 'number')}>
+            <Text style={styles.numberText}>1</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.numberButton} onPress={() => handlePress('2', '2', 'number')}>
+            <Text style={styles.numberText}>2</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.numberButton} onPress={() => handlePress('3', '3', 'number')}>
+            <Text style={styles.numberText}>3</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.operatorButton} onPress={() => handlePress('+', '+', 'operator')}>
+            <Text style={styles.operatorText}>+</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.row}>
+          <TouchableOpacity style={styles.zeroButton} onPress={() => handlePress('0', '0', 'number')}>
+            <Text style={styles.numberText}>0</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.numberButton} onPress={() => handlePress('.', '.', 'number')}>
+            <Text style={styles.numberText}>.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.operatorButton} onPress={() => handlePress('=', '=', 'operator')}>
+            <Text style={styles.operatorText}>=</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -232,26 +231,51 @@ const styles = StyleSheet.create({
     borderRadius: BUTTON_SIZE / 2,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  numberButton: {
+    width: BUTTON_SIZE,
+    height: BUTTON_SIZE,
+    borderRadius: BUTTON_SIZE / 2,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: '#333',
   },
-  zeroButton: {
-    width: (BUTTON_SIZE * 2) + 12,
-    alignItems: 'flex-start',
-    paddingLeft: 35,
-    borderRadius: BUTTON_SIZE / 2,
-  },
   operatorButton: {
+    width: BUTTON_SIZE,
+    height: BUTTON_SIZE,
+    borderRadius: BUTTON_SIZE / 2,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: '#FF9F0A',
   },
   functionButton: {
+    width: BUTTON_SIZE,
+    height: BUTTON_SIZE,
+    borderRadius: BUTTON_SIZE / 2,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: '#A5A5A5',
   },
+  zeroButton: {
+    width: (BUTTON_SIZE * 2) + 12,
+    height: BUTTON_SIZE,
+    borderRadius: BUTTON_SIZE / 2,
+    justifyContent: 'center',
+    paddingLeft: 35,
+    backgroundColor: '#333',
+  },
   buttonText: {
+    fontSize: 32,
+    fontWeight: '400',
+  },
+  numberText: {
     fontSize: 32,
     fontWeight: '400',
     color: '#fff',
   },
   operatorText: {
+    fontSize: 32,
+    fontWeight: '400',
     color: '#fff',
   },
 });
