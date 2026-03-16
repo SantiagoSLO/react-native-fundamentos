@@ -23,7 +23,7 @@ import { RowGap } from './src/presentation/screens/RowGap';
 
 const Stack = createNativeStackNavigator();
 
-// Menu principal con todos los screens
+//aqui estan los screens (NO TOCAR)
 const HomeScreen = ({ navigation }: any) => {
   const screens = [
     { name: 'HelloWorld', component: HelloWorldScreen, title: 'Hola Mundo' },

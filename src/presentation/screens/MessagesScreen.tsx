@@ -1,251 +1,219 @@
 import React, { useEffect, useState } from 'react'
-import {
-  StyleSheet,
-  Text,
-  View,
-  TextInput,
-  TouchableOpacity,
-  FlatList,
-  Alert
-} from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { supabase, Message } from '../../supabase'
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet } from 'react-native'
+import { supabase } from '../../supabase'
 
 export const MessagesScreen = () => {
 
-  const [messages, setMessages] = useState<Message[]>([])
-  const [newMessage, setNewMessage] = useState('')
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [editText, setEditText] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [messages, setMessages] = useState<any[]>([])
+  const [text, setText] = useState('')
+  const [editId, setEditId] = useState<number | null>(null)
 
   useEffect(() => {
-    fetchMessages()
+    loadMessages()
   }, [])
 
-  const fetchMessages = async () => {
-    setLoading(true)
-
-    const { data, error } = await supabase
-      .from('messages')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      Alert.alert('Error', error.message)
-    } else {
-      setMessages(data || [])
-    }
-
-    setLoading(false)
+  const loadMessages = async () => {
+    const { data } = await supabase.from('messages').select('*').order('created_at', { ascending: false })
+    if (data) setMessages(data)
   }
 
-  const addMessage = async () => {
-    if (!newMessage.trim()) return
+  const send = async () => {
+    if (!text.trim()) return
 
-    const { error } = await supabase
-      .from('messages')
-      .insert([{ content: newMessage }])
-
-    if (error) {
-      Alert.alert('Error', error.message)
+    if (editId) {
+      await supabase.from('messages').update({ content: text, updated_at: new Date().toISOString() }).eq('id', editId)
+      setEditId(null)
     } else {
-      setNewMessage('')
-      fetchMessages()
+      await supabase.from('messages').insert([{ content: text }])
     }
+
+    setText('')
+    loadMessages()
   }
 
-  const saveEdit = async () => {
-    if (!editText.trim() || editingId === null) return
-
-    const { error } = await supabase
-      .from('messages')
-      .update({ content: editText })
-      .eq('id', editingId)
-
-    if (error) {
-      Alert.alert('Error', error.message)
-    } else {
-      setEditingId(null)
-      setEditText('')
-      fetchMessages()
-    }
+  const remove = async (id: number) => {
+    await supabase.from('messages').delete().eq('id', id)
+    loadMessages()
   }
 
-  const deleteMessage = async (id: number) => {
-
-    const { error } = await supabase
-      .from('messages')
-      .delete()
-      .eq('id', id)
-
-    if (error) {
-      Alert.alert('Error', error.message)
-    } else {
-      fetchMessages()
-    }
+  const edit = (item: any) => {
+    setText(item.content)
+    setEditId(item.id)
   }
 
-  const renderItem = ({ item }: { item: Message }) => (
-    <View style={styles.messageContainer}>
-
-      {editingId === item.id ? (
-        <>
-          <TextInput
-            style={styles.input}
-            value={editText}
-            onChangeText={setEditText}
-          />
-
-          <View style={styles.row}>
-            <TouchableOpacity style={styles.save} onPress={saveEdit}>
-              <Text style={styles.btnText}>Guardar</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.cancel}
-              onPress={() => setEditingId(null)}
-            >
-              <Text style={styles.btnText}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </>
-      ) : (
-        <>
-          <Text style={styles.message}>{item.content}</Text>
-
-          <View style={styles.row}>
-            <TouchableOpacity
-              style={styles.edit}
-              onPress={() => {
-                setEditingId(item.id)
-                setEditText(item.content)
-              }}
-            >
-              <Text style={styles.btnText}>Editar</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.delete}
-              onPress={() => deleteMessage(item.id)}
-            >
-              <Text style={styles.btnText}>Eliminar</Text>
-            </TouchableOpacity>
-          </View>
-        </>
-      )}
-    </View>
-  )
+  const cancelEdit = () => {
+    setText('')
+    setEditId(null)
+  }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
 
-      <Text style={styles.title}>Mensajes</Text>
+      <Text style={styles.title}>💬 Mensajes</Text>
 
-      <View style={styles.row}>
+      {/* Input y botón de enviar */}
+      <View style={styles.inputContainer}>
         <TextInput
-          style={styles.input}
           placeholder="Escribe un mensaje..."
-          value={newMessage}
-          onChangeText={setNewMessage}
+          value={text}
+          onChangeText={setText}
+          style={styles.input}
+          placeholderTextColor="#999"
         />
-
-        <TouchableOpacity style={styles.add} onPress={addMessage}>
-          <Text style={styles.btnText}>Agregar</Text>
+        <TouchableOpacity 
+          style={[styles.sendButton, editId ? styles.updateButton : null]} 
+          onPress={send}
+        >
+          <Text style={styles.sendButtonText}>
+            {editId ? '✏️ Actualizar' : '📤 Enviar'}
+          </Text>
         </TouchableOpacity>
       </View>
 
-      {loading ? (
-        <Text style={{ textAlign: 'center' }}>Cargando...</Text>
-      ) : (
-        <FlatList
-          data={messages}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderItem}
-        />
+      {/* Botón cancelar cuando está editando */}
+      {editId && (
+        <TouchableOpacity style={styles.cancelButton} onPress={cancelEdit}>
+          <Text style={styles.cancelButtonText}>❌ Cancelar edición</Text>
+        </TouchableOpacity>
       )}
 
-    </SafeAreaView>
+      {/* Lista de mensajes */}
+      <FlatList
+        data={messages}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item }) => (
+          <View style={styles.messageCard}>
+            <Text style={styles.messageText}>{item.content}</Text>
+            <Text style={styles.dateText}>
+              {new Date(item.created_at).toLocaleDateString()}
+            </Text>
+            
+            <View style={styles.actionButtons}>
+              <TouchableOpacity 
+                style={styles.editButton} 
+                onPress={() => edit(item)}
+              >
+                <Text style={styles.buttonText}>✏️ Editar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.deleteButton} 
+                onPress={() => remove(item.id)}
+              >
+                <Text style={styles.buttonText}>🗑️ Eliminar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+        ListEmptyComponent={
+          <Text style={styles.emptyText}>No hay mensajes aún. ¡Envía el primero! 📝</Text>
+        }
+      />
+
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
-
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#f5f5f5'
+    padding: 16,
+    backgroundColor: '#f5f5f5',
   },
-
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 20
+    marginBottom: 20,
+    color: '#333',
   },
-
-  row: {
+  inputContainer: {
     flexDirection: 'row',
-    marginBottom: 10
+    marginBottom: 15,
   },
-
   input: {
     flex: 1,
     backgroundColor: '#fff',
-    padding: 10,
-    borderRadius: 6,
-    marginRight: 10
-  },
-
-  add: {
-    backgroundColor: '#4CAF50',
     padding: 12,
-    borderRadius: 6
-  },
-
-  messageContainer: {
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 10
-  },
-
-  message: {
+    borderRadius: 10,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#ddd',
     fontSize: 16,
-    marginBottom: 10
   },
-
-  edit: {
-    backgroundColor: '#2196F3',
-    padding: 8,
-    borderRadius: 5,
-    marginRight: 10
-  },
-
-  delete: {
-    backgroundColor: '#f44336',
-    padding: 8,
-    borderRadius: 5
-  },
-
-  save: {
+  sendButton: {
     backgroundColor: '#4CAF50',
-    padding: 8,
-    borderRadius: 5,
-    marginRight: 10
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
+    justifyContent: 'center',
   },
-
-  cancel: {
-    backgroundColor: '#999',
-    padding: 8,
-    borderRadius: 5
+  updateButton: {
+    backgroundColor: '#FF9800',
   },
-
-  btnText: {
+  sendButtonText: {
     color: '#fff',
-    fontWeight: 'bold'
-  }
-
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  cancelButton: {
+    backgroundColor: '#f44336',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 15,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  messageCard: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  messageText: {
+    fontSize: 16,
+    color: '#333',
+    marginBottom: 8,
+  },
+  dateText: {
+    fontSize: 12,
+    color: '#999',
+    marginBottom: 10,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  editButton: {
+    backgroundColor: '#2196F3',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  deleteButton: {
+    backgroundColor: '#f44336',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: '#999',
+    marginTop: 40,
+    fontSize: 16,
+  },
 })
-
-export default MessagesScreen
